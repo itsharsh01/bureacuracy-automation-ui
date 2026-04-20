@@ -183,6 +183,11 @@ export default function Home() {
     return <span className="badge badge-warning">{normalizedStatus || 'PENDING'}</span>;
   };
 
+  const shouldShowCompanyResponse = (status) => {
+    const normalizedStatus = (status || '').toUpperCase();
+    return normalizedStatus === 'RESOLVED' || normalizedStatus === 'REJECTED';
+  };
+
   useEffect(() => {
     setSelectedDepartment(selectedComplaint?.department || '');
     setForwardCompanyName(selectedComplaint?.company || '');
@@ -598,6 +603,27 @@ export default function Home() {
                     {getStatusBadge(selectedComplaint.status)}
                   </div>
                 </div>
+
+                {shouldShowCompanyResponse(selectedComplaint.status) && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h4 className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                      Company Response
+                    </h4>
+                    <p
+                      className="text-sm"
+                      style={{
+                        lineHeight: '1.6',
+                        color: 'var(--text-main)',
+                        backgroundColor: 'var(--bg-color)',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {selectedComplaint.company_response || 'No response provided by company.'}
+                    </p>
+                  </div>
+                )}
 
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
                   <h4 className="text-xs font-semibold text-muted" style={{ textTransform: 'uppercase', marginBottom: '1rem' }}>Actions</h4>

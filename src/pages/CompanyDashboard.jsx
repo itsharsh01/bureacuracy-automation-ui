@@ -63,6 +63,11 @@ export default function CompanyDashboard() {
     return 'badge-primary';
   };
 
+  const shouldShowCompanyResponse = (status) => {
+    const normalized = (status || '').toUpperCase();
+    return normalized === 'RESOLVED' || normalized === 'REJECTED';
+  };
+
   const pendingCount = useMemo(
     () => queries.filter((q) => (q.status || '').toUpperCase() === 'PENDING').length,
     [queries]
@@ -410,6 +415,26 @@ export default function CompanyDashboard() {
                 <div style={{ color: '#334155', fontSize: '0.92rem', background: '#f8fafc', padding: '0.8rem', borderRadius: '8px' }}>
                   {selectedQuery.query_text}
                 </div>
+                {shouldShowCompanyResponse(selectedQuery.status) && (
+                  <div>
+                    <label className="text-sm font-semibold" style={{ display: 'block', marginBottom: '0.35rem', color: '#334155' }}>
+                      Existing Company Response
+                    </label>
+                    <div
+                      style={{
+                        color: '#334155',
+                        fontSize: '0.92rem',
+                        background: '#f8fafc',
+                        padding: '0.8rem',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {selectedQuery.company_response || 'No response provided by company.'}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-semibold" style={{ display: 'block', marginBottom: '0.35rem', color: '#334155' }}>
                     Action

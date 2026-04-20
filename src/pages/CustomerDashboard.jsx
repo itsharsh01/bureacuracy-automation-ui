@@ -118,25 +118,29 @@ export default function CustomerDashboard() {
         const fetchedQueries = Array.isArray(data?.queries) ? data.queries : [];
         setQueries(fetchedQueries);
 
-        if (fetchedQueries.length > 0) {
-          setCanRaiseQuery(false);
-          setChatStep('locked');
-          setMessages(prev => [
-            ...prev,
-            {
-              sender: 'bot',
-              text: 'Existing queries found for this customer. New query submission is disabled right now.',
-              time: new Date(),
-            },
-          ]);
-        } else {
+        const hasPendingQuery = fetchedQueries.some(
+          (query) => (query?.status || '').toUpperCase() === 'PENDING'
+        );
+
+        if (fetchedQueries.length === 0 || !hasPendingQuery) {
           setCanRaiseQuery(true);
           setChatStep('idle');
           setMessages(prev => [
             ...prev,
             {
               sender: 'bot',
-              text: 'No existing query found. Click "Raise a Query" to start.',
+              text: 'Formal Note: You may raise a new query when there is no active pending query. Please click "Raise a Query" to proceed.',
+              time: new Date(),
+            },
+          ]);
+        } else {
+          setCanRaiseQuery(false);
+          setChatStep('locked');
+          setMessages(prev => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: 'Formal Note: A pending query already exists for your account. Please wait until it is resolved or rejected before raising a new query.',
               time: new Date(),
             },
           ]);
@@ -212,7 +216,7 @@ export default function CustomerDashboard() {
         ...prev,
         {
           sender: 'bot',
-          text: 'You already have an existing query. New query submission is currently disabled.',
+          text: 'Formal Note: New query submission is currently disabled because an active pending query exists for your account.',
           time: new Date(),
         },
       ]);
