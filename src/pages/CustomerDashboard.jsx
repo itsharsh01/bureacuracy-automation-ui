@@ -1,17 +1,81 @@
 import { useState, useRef, useEffect } from 'react';
 
-const mockQueries = [
-  { id: 'QRY-1029', title: 'Pothole repair request on 5th Ave', status: 'In Progress', date: '2026-04-18', category: 'Infrastructure' },
-  { id: 'QRY-1028', title: 'Property tax discrepancy', status: 'Resolved', date: '2026-04-15', category: 'Finance' },
-  { id: 'QRY-1025', title: 'Streetlight out in neighborhood', status: 'Pending', date: '2026-04-12', category: 'Maintenance' },
+const mockBotWelcome = "Hello! I am your automated support assistant. How can I help you with your queries today?";
+const CUSTOMER_ID = 12;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+const COMPANY_OPTIONS = [
+  'Bank of America',
+  'Wells Fargo & Company',
+  'JPMorgan Chase & Co.',
+  'Equifax',
+  'Experian',
+  'Citibank',
+  'TransUnion Intermediate Holdings, Inc.',
+  'Ocwen',
+  'Capital One',
+  'Nationstar Mortgage',
+  'U.S. Bancorp',
+  'Synchrony Financial',
+  'Ditech Financial LLC',
+  'Navient Solutions, Inc.',
+  'PNC Bank N.A.',
+  'Encore Capital Group',
+  'HSBC North America Holdings Inc.',
+  'Amex',
+  'SunTrust Banks, Inc.',
+  'Discover',
+  'TD Bank US Holding Company',
+  'Select Portfolio Servicing, Inc',
+  'Portfolio Recovery Associates, Inc.',
+  'Citizens Financial Group, Inc.',
+  'Fifth Third Financial Corporation',
+  'Seterus, Inc.',
+  'Barclays PLC',
+  'ERC',
+  'BB&T Financial',
+  'M&T Bank Corporation',
+  'Ally Financial Inc.',
+  'Regions Financial Corporation',
+  'PayPal Holdings, Inc.',
+  'USAA Savings',
+  'Specialized Loan Servicing LLC',
+  'Santander Consumer USA Holdings Inc',
+  'Santander Bank US',
+  'AES/PHEAA',
+  'Expert Global Solutions, Inc.',
+  'Flagstar Bank',
+  'Resurgent Capital Services L.P.',
+  'Navy FCU',
+  'CIT Bank National Association',
+  'PHH Mortgage',
+  'Caliber Home Loans, Inc',
+  'Transworld Systems Inc.',
+  'KeyBank NA',
+  'Bayview Loan Servicing, LLC',
+  'Convergent Resources, Inc.',
+  'The Western Union Company',
 ];
 
-const mockBotWelcome = "Hello! I am your automated support assistant. How can I help you with your queries today?";
+const STATE_OPTIONS = [
+  'CA', 'NY', 'MD', 'GA', 'AZ', 'IL', 'NC', 'TX', 'DC', 'KY', 'RI', 'TN', 'AR', 'AL',
+  'NJ', 'VA', 'FL', 'MN', 'AK', 'OH', 'OR', 'MO', 'LA', 'SC', 'OK', 'WA', 'PA', 'MI',
+  'CO', 'KS', 'MA', 'NH', 'NV', 'WV', 'PR', 'DE', 'IN', 'UT', 'ME', 'NE', 'NM', 'WY',
+  'CT', 'HI', 'ID', 'MS', 'WI', 'IA', 'MT', 'MH', 'VT', 'AE', 'SD', 'FM', 'VI', 'ND',
+  'GU', 'MP', 'AP', 'AS', 'PW', 'AA',
+];
 
 export default function CustomerDashboard() {
   const [messages, setMessages] = useState([{ sender: 'bot', text: mockBotWelcome, time: new Date() }]);
+  const [queries, setQueries] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [chatStep, setChatStep] = useState('idle');
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoadingQueries, setIsLoadingQueries] = useState(true);
+  const [isSubmittingQuery, setIsSubmittingQuery] = useState(false);
+  const [canRaiseQuery, setCanRaiseQuery] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -22,31 +86,220 @@ export default function CustomerDashboard() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSendMessage = (e) => {
+  useEffect(() => {
+    const fetchCustomerQueries = async () => {
+      setIsLoadingQueries(true);
+      setIsTyping(true);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/chatbot/customer/query?customer_id=${CUSTOMER_ID}`);
+
+        if (response.status === 201) {
+          const noQueryData = await response.json();
+          setQueries([]);
+          setCanRaiseQuery(true);
+          setChatStep('idle');
+          setMessages(prev => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: `${noQueryData?.message || 'No query available for this customer id.'} Click "Raise a Query" to start.`,
+              time: new Date(),
+            },
+          ]);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch customer queries.');
+        }
+
+        const data = await response.json();
+        const fetchedQueries = Array.isArray(data?.queries) ? data.queries : [];
+        setQueries(fetchedQueries);
+
+        if (fetchedQueries.length > 0) {
+          setCanRaiseQuery(false);
+          setChatStep('locked');
+          setMessages(prev => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: 'Existing queries found for this customer. New query submission is disabled right now.',
+              time: new Date(),
+            },
+          ]);
+        } else {
+          setCanRaiseQuery(true);
+          setChatStep('idle');
+          setMessages(prev => [
+            ...prev,
+            {
+              sender: 'bot',
+              text: 'No existing query found. Click "Raise a Query" to start.',
+              time: new Date(),
+            },
+          ]);
+        }
+      } catch (error) {
+        setCanRaiseQuery(true);
+        setChatStep('idle');
+        setMessages(prev => [
+          ...prev,
+          {
+            sender: 'bot',
+            text: error.message || 'Unable to fetch existing queries. You can still raise a new query.',
+            time: new Date(),
+          },
+        ]);
+      } finally {
+        setIsTyping(false);
+        setIsLoadingQueries(false);
+      }
+    };
+
+    fetchCustomerQueries();
+  }, []);
+
+  const handleStartRaiseQuery = () => {
+    if (!canRaiseQuery || isSubmittingQuery || chatStep !== 'idle') return;
+
+    setChatStep('state');
+    setSelectedState('');
+    setSelectedCompany('');
+    setMessages(prev => [
+      ...prev,
+      {
+        sender: 'bot',
+        text: 'Please select your state from the dropdown.',
+        time: new Date(),
+      },
+    ]);
+  };
+
+  const handleStateConfirm = () => {
+    if (!selectedState) return;
+
+    setMessages(prev => [
+      ...prev,
+      { sender: 'user', text: `State: ${selectedState}`, time: new Date() },
+      { sender: 'bot', text: 'Now select your company from the dropdown.', time: new Date() },
+    ]);
+    setChatStep('company');
+  };
+
+  const handleCompanyConfirm = () => {
+    if (!selectedCompany) return;
+
+    setMessages(prev => [
+      ...prev,
+      { sender: 'user', text: `Company: ${selectedCompany}`, time: new Date() },
+      { sender: 'bot', text: 'Company captured. Please type your query now.', time: new Date() },
+    ]);
+    setChatStep('query');
+  };
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
-    const userMessage = { sender: 'user', text: inputValue, time: new Date() };
-    setMessages(prev => [...prev, userMessage]);
+    const enteredText = inputValue.trim();
+    setMessages(prev => [...prev, { sender: 'user', text: enteredText, time: new Date() }]);
     setInputValue('');
-    setIsTyping(true);
 
-    // Simulate bot response
-    setTimeout(() => {
+    if (!canRaiseQuery) {
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: 'You already have an existing query. New query submission is currently disabled.',
+          time: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    if (chatStep !== 'query') {
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: 'Please use the dropdown selectors for state and company first.',
+          time: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    setIsTyping(true);
+    setIsSubmittingQuery(true);
+
+    try {
+      const payload = {
+        customer_id: CUSTOMER_ID,
+        state: selectedState,
+        company: selectedCompany,
+        query_text: enteredText,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/chatbot/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to raise query right now. Please try again.');
+      }
+
+      const responseData = await response.json().catch(() => ({}));
+      const createdQuery = {
+        id: responseData?.id || `TEMP-${Date.now()}`,
+        customer_id: CUSTOMER_ID,
+        state: selectedState,
+        company: selectedCompany,
+        query_text: payload.query_text,
+        department: responseData?.department || 'Support',
+        status: responseData?.status || 'PENDING',
+        date: responseData?.date || new Date().toISOString(),
+      };
+
+      setQueries(prev => [createdQuery, ...prev]);
+      setCanRaiseQuery(false);
+      setChatStep('locked');
+      setSelectedCompany('');
+      setSelectedState('');
       setIsTyping(false);
-      setMessages(prev => [...prev, { 
-        sender: 'bot', 
-        text: "I've received your message. Our system is currently analyzing your request. Is there anything else you'd like to add?", 
-        time: new Date() 
-      }]);
-    }, 1500);
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: 'Your query has been raised successfully.',
+          time: new Date(),
+        },
+      ]);
+    } catch (error) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: 'bot',
+          text: error.message || 'Failed to submit query. Please try again.',
+          time: new Date(),
+        },
+      ]);
+    } finally {
+      setIsSubmittingQuery(false);
+    }
   };
 
   const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'Resolved': return 'badge-success';
-      case 'Pending': return 'badge-warning';
-      case 'In Progress': return 'badge-primary'; // Using primary for in progress
+    switch ((status || '').toUpperCase()) {
+      case 'RESOLVED': return 'badge-success';
+      case 'PENDING': return 'badge-warning';
+      case 'IN PROGRESS': return 'badge-primary';
       default: return 'badge-default';
     }
   };
@@ -244,8 +497,62 @@ export default function CustomerDashboard() {
 
         .chat-input-form {
           display: flex;
+          flex-direction: column;
           gap: 0.75rem;
           position: relative;
+        }
+
+        .query-metadata-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+
+        .chat-select {
+          padding: 0.8rem 1rem;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          font-size: 0.9rem;
+          color: #1e293b;
+          outline: none;
+          transition: all 0.2s;
+        }
+
+        .chat-select:focus {
+          border-color: #3b82f6;
+          background: #ffffff;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .chat-input-row {
+          display: flex;
+          gap: 0.75rem;
+        }
+
+        .raise-query-btn {
+          width: 100%;
+          border: none;
+          border-radius: 12px;
+          padding: 0.8rem 1rem;
+          font-weight: 600;
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          color: #ffffff;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 6px 14px rgba(22, 163, 74, 0.25);
+        }
+
+        .raise-query-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 18px rgba(22, 163, 74, 0.35);
+        }
+
+        .raise-query-btn:disabled {
+          background: #cbd5e1;
+          box-shadow: none;
+          cursor: not-allowed;
+          transform: none;
         }
 
         .chat-input {
@@ -337,6 +644,10 @@ export default function CustomerDashboard() {
           .chat-container {
             height: 500px;
           }
+
+          .query-metadata-row {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
 
@@ -350,32 +661,38 @@ export default function CustomerDashboard() {
                 <div className="pane-title-icon">📋</div>
                 My Raised Queries
               </div>
-              <span className="badge badge-default">{mockQueries.length} Total</span>
+              <span className="badge badge-default">{queries.length} Total</span>
             </div>
             <div className="query-list">
-              {mockQueries.map(query => (
-                <div key={query.id} className="query-card">
-                  <div className="query-card-header">
-                    <div>
-                      <span className="query-id">{query.id}</span>
-                      <h3 className="query-title">{query.title}</h3>
+              {isLoadingQueries ? (
+                <div className="query-card">Loading queries...</div>
+              ) : queries.length === 0 ? (
+                <div className="query-card">No queries available for this customer.</div>
+              ) : (
+                queries.map((query) => (
+                  <div key={query.id} className="query-card">
+                    <div className="query-card-header">
+                      <div>
+                        <span className="query-id">QRY-{query.id}</span>
+                        <h3 className="query-title">{query.query_text}</h3>
+                      </div>
+                      <span className={`badge ${getStatusBadgeClass(query.status)}`}>
+                        {query.status}
+                      </span>
                     </div>
-                    <span className={`badge ${getStatusBadgeClass(query.status)}`}>
-                      {query.status}
-                    </span>
+                    <div className="query-footer">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        {new Date(query.date).toLocaleDateString()}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        {query.company}
+                      </span>
+                    </div>
                   </div>
-                  <div className="query-footer">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                      {query.date}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                      {query.category}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -421,19 +738,96 @@ export default function CustomerDashboard() {
               
               <div className="chat-input-area">
                 <form className="chat-input-form" onSubmit={handleSendMessage}>
-                  <input
-                    type="text"
-                    className="chat-input"
-                    placeholder="Type your message here..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                  />
-                  <button type="submit" className="send-btn" disabled={!inputValue.trim()}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13"></line>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                  </button>
+                  {canRaiseQuery && chatStep === 'idle' && (
+                    <button
+                      type="button"
+                      className="raise-query-btn"
+                      onClick={handleStartRaiseQuery}
+                      disabled={isSubmittingQuery}
+                    >
+                      Raise a Query
+                    </button>
+                  )}
+                  {canRaiseQuery && chatStep === 'state' && (
+                    <div className="query-metadata-row">
+                      <select
+                        className="chat-select"
+                        value={selectedState}
+                        onChange={(e) => setSelectedState(e.target.value)}
+                        disabled={isSubmittingQuery}
+                      >
+                        <option value="">Select state</option>
+                        {STATE_OPTIONS.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="raise-query-btn"
+                        onClick={handleStateConfirm}
+                        disabled={!selectedState || isSubmittingQuery}
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  )}
+                  {canRaiseQuery && chatStep === 'company' && (
+                    <div className="query-metadata-row">
+                      <select
+                        className="chat-select"
+                        value={selectedCompany}
+                        onChange={(e) => setSelectedCompany(e.target.value)}
+                        disabled={isSubmittingQuery}
+                      >
+                        <option value="">Select company</option>
+                        {COMPANY_OPTIONS.map((company) => (
+                          <option key={company} value={company}>
+                            {company}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="raise-query-btn"
+                        onClick={handleCompanyConfirm}
+                        disabled={!selectedCompany || isSubmittingQuery}
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  )}
+                  <div className="chat-input-row">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      placeholder={
+                        !canRaiseQuery
+                          ? 'Existing query found. New query disabled.'
+                          : chatStep === 'idle'
+                            ? 'Click "Raise a Query" to start.'
+                          : chatStep === 'state'
+                            ? 'Select state above'
+                            : chatStep === 'company'
+                              ? 'Select company above'
+                              : 'Describe your query...'
+                      }
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      disabled={!canRaiseQuery || isSubmittingQuery || chatStep === 'idle' || chatStep === 'state' || chatStep === 'company'}
+                    />
+                    <button
+                      type="submit"
+                      className="send-btn"
+                      disabled={!canRaiseQuery || isSubmittingQuery || chatStep !== 'query' || !inputValue.trim()}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                      </svg>
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>

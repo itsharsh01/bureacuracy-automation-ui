@@ -1,10 +1,27 @@
+import { useLocation, useNavigate } from 'react-router-dom';
+
 export default function Navbar({ title = "Government Services Portal" }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdminUserManagementVisible =
+    location.pathname === '/admin' && (user?.role || '').toLowerCase() === 'admin';
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const handleOpenUserManagement = () => {
+    window.dispatchEvent(new Event('open-user-management'));
+  };
 
   return (
     <nav style={{
@@ -45,6 +62,38 @@ export default function Navbar({ title = "Government Services Portal" }) {
           <span style={{ fontWeight: '500' }}>System Active</span>
         </div>
         <div style={{ color: '#E5E7EB', fontWeight: '500' }}>{currentDate}</div>
+        {isAdminUserManagementVisible && (
+          <button
+            type="button"
+            onClick={handleOpenUserManagement}
+            style={{
+              backgroundColor: 'rgba(37, 99, 235, 0.95)',
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '8px',
+              padding: '0.45rem 0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            User Management
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          style={{
+            backgroundColor: 'rgba(220, 38, 38, 0.9)',
+            color: '#ffffff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            padding: '0.45rem 0.8rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Logout
+        </button>
       </div>
     </nav>
   );
