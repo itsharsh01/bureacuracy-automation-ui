@@ -1,4 +1,4 @@
-# Complaint AI Dashboard
+# Beauracracy Dashboard
 
 A SaaS-style dashboard for complaint triage using AI-based risk scoring.
 
